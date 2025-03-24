@@ -8,12 +8,12 @@ const scheduleTasks = require('./custom'); // Custom scheduled tasks
 const app = express();
 const PORT = 3000;
 
-// Express Middleware
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use(express.static('public'));
 
-// ✅ Load bot config safely
+// ✅ Load JSON Config
 const loadConfig = (filePath) => {
     try {
         if (!fs.existsSync(filePath)) {
@@ -30,7 +30,7 @@ const loadConfig = (filePath) => {
 const config = loadConfig("./config.json");
 const botPrefix = config.prefix || "/";
 
-// ✅ Global Storage for Events & Commands
+// ✅ Storage for Events & Commands
 global.events = new Map();
 global.commands = new Map();
 
@@ -66,12 +66,7 @@ const loadCommands = () => {
     }
 };
 
-// ✅ Serve index.html on root URL
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ✅ API Section (Dynamic API Loading)
+// ✅ API Section (New Structure)
 const apiPath = path.join(__dirname, 'api');
 const apiRoutes = [];
 
@@ -79,14 +74,21 @@ fs.readdirSync(apiPath).forEach(file => {
     if (file.endsWith('.js')) {
         try {
             const apiModule = require(`./api/${file}`);
-            if (!apiModule.name || !apiModule.handler) {
+            if (!apiModule.name || !apiModule.execute) {
                 throw new Error(`Missing required properties in ${file}`);
             }
 
-            const route = apiModule.route || `/${apiModule.name}`;
+            const route = apiModule.route || `/api/${apiModule.name}`;
             const method = apiModule.method?.toLowerCase() || 'get';
 
-            app[method](route, apiModule.handler);
+            app[method](route, async (req, res) => {
+                try {
+                    await apiModule.execute({ req, res });
+                } catch (error) {
+                    console.error(`❌ Error in API '${apiModule.name}':`, error);
+                    res.status(500).json({ error: "Internal Server Error" });
+                }
+            });
 
             apiRoutes.push({
                 name: apiModule.name,
@@ -111,7 +113,7 @@ app.get('/api/list', (req, res) => {
 // ✅ Load Facebook App State
 const appState = loadConfig("./appState.json");
 
-// ✅ Function to Start the FCA Bot
+// ✅ Start FCA Bot
 const startBot = async () => {
     try {
         login({ appState }, (err, api) => {
@@ -174,7 +176,7 @@ const startBot = async () => {
                 }
             });
 
-            // ✅ Setup Auto-Restart & Auto-Greet
+            // ✅ Auto-Restart & Auto-Greet
             scheduleTasks(ownerID, api, { autoRestart: true, autoGreet: true });
         });
     } catch (error) {

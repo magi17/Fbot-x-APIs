@@ -1,12 +1,15 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
     name: "ytsdl",
-    description: "Search YouTube videos and get a direct 360p download link",
-    usage: "/ytsdl?q=",
-    handler: async (req, res) => {
+    category: "media",
+    method: "GET",
+    usage: "/api/ytsdl?q=",
+    async execute({ req, res }) {
         const query = req.query.q;
-        if (!query) return res.status(400).json({ error: "Missing search query" });
+        if (!query) {
+            return res.status(400).json({ success: false, error: "Missing search query" });
+        }
 
         const API_KEY = "AIzaSyDC9dmGLvVptfjhZx6xgmjxqFtkDVlGxH4";
         const YT_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
@@ -23,7 +26,9 @@ module.exports = {
                 }
             });
 
-            if (!data.items.length) return res.status(404).json({ error: "No results found" });
+            if (!data.items.length) {
+                return res.status(404).json({ success: false, error: "No results found" });
+            }
 
             const firstResult = data.items[0];
             const videoId = firstResult.id.videoId;
@@ -33,16 +38,19 @@ module.exports = {
             const { data: ytdlResponse } = await axios.get(YTDL_API_URL + encodeURIComponent(videoUrl));
 
             if (!ytdlResponse.response || !ytdlResponse.response["360p"]) {
-                return res.status(404).json({ error: "360p quality not available" });
+                return res.status(404).json({ success: false, error: "360p quality not available" });
             }
 
             res.json({
-                title: ytdlResponse.response["360p"].title,
-                download_url: ytdlResponse.response["360p"].download_url
+                success: true,
+                data: {
+                    title: ytdlResponse.response["360p"].title,
+                    download_url: ytdlResponse.response["360p"].download_url
+                }
             });
 
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch data", details: error.message });
+            res.status(500).json({ success: false, error: "Failed to fetch data", details: error.message });
         }
     }
 };

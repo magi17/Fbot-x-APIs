@@ -1,10 +1,11 @@
-const axios = require("axios");
+const { ttdl, ytmp3, ytmp4, igdl, fbdl } = require('ruhend-scraper');
 
 module.exports = {
     name: "download",
-    category: "videos",
-    usage: "/download?url=<URL>",
-    handler: async (req, res) => {
+    category: "media",
+    method: "GET",
+    usage: "/api/download?url=",
+    async execute({ req, res }) {
         const { url } = req.query;
 
         if (!url) {
@@ -12,16 +13,10 @@ module.exports = {
         }
 
         try {
-            const platform = detectPlatform(url);
-            if (!platform) {
-                throw new Error("Unsupported URL");
-            }
-
-            const media = await fetchMedia(url, platform);
-            if (!media.title || !media.download_url) {
+            const media = await fetchMedia(url);
+            if (!media.url && !media.video && !media.audio) {
                 throw new Error("No media found for this URL.");
             }
-
             res.json({ success: true, data: media });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
@@ -31,43 +26,56 @@ module.exports = {
 
 // Detect platform based on URL
 function detectPlatform(url) {
+    if (url.includes("tiktok.com")) return "tiktok";
+    if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
     if (url.includes("instagram.com")) return "instagram";
     if (url.includes("facebook.com")) return "facebook";
-    if (url.includes("tiktok.com")) return "tiktok";
     return null;
 }
 
 // Fetch media URLs based on platform
-async function fetchMedia(url, platform) {
-    let apiUrl = "";
-
-    if (platform === "facebook") {
-        apiUrl = `https://kaiz-apis.gleeze.com/api/fbdl?url=${encodeURIComponent(url)}`;
-    } else if (platform === "instagram") {
-        apiUrl = `https://kaiz-apis.gleeze.com/api/insta-dl?url=${encodeURIComponent(url)}`;
-    } else if (platform === "tiktok") {
-        apiUrl = `https://kaiz-apis.gleeze.com/api/tiktok-dl?url=${encodeURIComponent(url)}`;
-    } else {
-        throw new Error("Unsupported platform");
-    }
+async function fetchMedia(url) {
+    const platform = detectPlatform(url);
+    if (!platform) throw new Error("Unsupported URL");
 
     try {
-        const response = await axios.get(apiUrl);
-        const data = response.data;
+        switch (platform) {
+            case "tiktok": {
+                const tiktok = await ttdl(url);
+                return { platform, url: tiktok.video };
+            }
 
-        // Facebook: Get only title and videoUrl, and rename videoUrl to download_url
-        if (platform === "facebook") {
-            return {
-                title: data.title,
-                download_url: data.videoUrl
-            };
+            case "youtube": {
+                const videoData = await ytmp4(url);
+                const audioData = await ytmp3(url);
+                return {
+                    platform,
+                    title: videoData.title,
+                    author: videoData.author,
+                    description: videoData.description,
+                    duration: videoData.duration,
+                    quality: videoData.quality || "Unknown",
+                    views: videoData.views,
+                    upload: videoData.upload,
+                    thumbnail: videoData.thumbnail,
+                    video: videoData.video || null,
+                    audio: audioData.audio || null
+                };
+            }
+
+            case "instagram": {
+                const ig = await igdl(url);
+                return { platform, url: ig.data.length > 0 ? ig.data[0].url : null };
+            }
+
+            case "facebook": {
+                const fb = await fbdl(url);
+                return { platform, url: fb.data.length > 0 ? fb.data[0].url : null };
+            }
+
+            default:
+                throw new Error("Platform not supported");
         }
-
-        // Other platforms: Standardize response to use download_url
-        return {
-            title: data.title,
-            download_url: data.download_url || data.url
-        };
     } catch (error) {
         console.error(`Error fetching ${platform} media:`, error);
         throw new Error(`Failed to fetch ${platform} media.`);

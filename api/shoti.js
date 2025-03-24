@@ -8,8 +8,9 @@ const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${G
 module.exports = {
     name: "shoti",
     category: "media",
-    usage: "/shoti",
-    handler: async (req, res) => {
+    method: "GET",
+    usage: "/api/shoti",
+    async execute({ req, res }) {
         try {
             // Fetch tiktok.json from GitHub raw URL
             const response = await axios.get(GITHUB_RAW_URL);
@@ -34,7 +35,7 @@ module.exports = {
             }
         } catch (error) {
             console.error("Error fetching TikTok data:", error);
-            res.status(500).json({ error: "Internal server error" });
+            res.status(500).json({ error: "Internal server error", details: error.message });
         }
-    },
+    }
 };
