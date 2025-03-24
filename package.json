@@ -16,5 +16,18 @@
     "url": "https://github.com/magi17/Fbot-x-APIs/issues"
   },
   "homepage": "https://github.com/magi17/Fbot-x-APIs#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "@mistralai/mistralai": "^1.5.2",
+    "axios": "^1.8.4",
+    "child_process": "^1.0.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "gtts": "^0.2.1",
+    "npmlog": "^7.0.1",
+    "path": "^0.12.7",
+    "ws3-fca": "^1.0.47"
+  }
 }
